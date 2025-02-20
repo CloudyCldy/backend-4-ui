@@ -1,99 +1,102 @@
-require("dotenv").config();
-const express = require("express");
-const mysql = require("mysql2/promise");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const cors = require("cors");
+require("dotenv").config(); // Load environment variables from .env file
+const express = require("express"); // Import Express framework
+const mysql = require("mysql2/promise"); // Import MySQL library with async/await support
+const bcrypt = require("bcryptjs"); // Import bcrypt for password hashing
+const jwt = require("jsonwebtoken"); // Import JWT for authentication
+const cors = require("cors"); // Import CORS to handle cross-origin requests
 
-const app = express();
-app.use(express.json());
-app.use(cors());
+const app = express(); // Create an Express application
+app.use(express.json()); // Enable JSON parsing for request bodies
+app.use(cors()); // Enable CORS for cross-origin requests
 
-// Configuración de conexión a la base de datos
+// Database connection configuration
 const connection = mysql.createPool({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "hamstech",
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+    host: "localhost", // Database host
+    user: "root", // Database username
+    password: "", // Database password (empty for local setups)
+    database: "hamstech", // Database name
+    waitForConnections: true, // Wait if all connections are busy
+    connectionLimit: 10, // Max number of connections
+    queueLimit: 0 // No limit on queueing requests
 });
 
-// Clave secreta para JWT
+// Secret key for JWT authentication
 const JWT_SECRET = process.env.JWT_SECRET || "hamtech";
 
-// Registro de usuario
+// User registration route with default role "normal"
 app.post("/register", async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, rol = "normal" } = req.body;
     if (!name || !email || !password) {
-        return res.status(400).json({ error: "Faltan datos" });
+        return res.status(400).json({ error: "Missing data" });
+    }
+    if (!["admin", "normal"].includes(rol)) {
+        return res.status(400).json({ error: "Invalid role" });
     }
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 10); // Hash password before storing
         const [result] = await connection.execute(
-            "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-            [name, email, hashedPassword]
+            "INSERT INTO users (name, email, password, rol) VALUES (?, ?, ?, ?)",
+            [name, email, hashedPassword, rol]
         );
-        res.status(201).json({ message: "Registro exitoso", user: result.insertId });
+        res.status(201).json({ message: "Registration successful", user: result.insertId });
     } catch (err) {
-        console.error("Error en /register:", err);
-        res.status(500).json({ error: "Error en el servidor" });
+        console.error("Error in /register:", err);
+        res.status(500).json({ error: "Server error" });
     }
 });
 
-// Inicio de sesión
+// User login route with JWT token including role
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
-        return res.status(400).json({ error: "Faltan datos" });
+        return res.status(400).json({ error: "Missing data" });
     }
     try {
         const [rows] = await connection.execute("SELECT * FROM users WHERE email = ?", [email]);
         if (rows.length === 0) {
-            return res.status(401).json({ error: "Usuario no encontrado" });
+            return res.status(401).json({ error: "User not found" });
         }
         const user = rows[0];
-        const match = await bcrypt.compare(password, user.password);
+        const match = await bcrypt.compare(password, user.password); // Compare input password with stored hash
         if (!match) {
-            return res.status(401).json({ error: "Contraseña incorrecta" });
+            return res.status(401).json({ error: "Incorrect password" });
         }
         
-        // Generar token
-        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "1h" });
-        res.json({ message: "Inicio de sesión exitoso", token });
+        // Generate JWT token with user ID, email, and role
+        const token = jwt.sign({ id: user.id, email: user.email, rol: user.rol }, JWT_SECRET, { expiresIn: "1h" });
+        res.json({ message: "Login successful", token });
     } catch (err) {
-        console.error("Error en /login:", err);
-        res.status(500).json({ error: "Error en el servidor" });
+        console.error("Error in /login:", err);
+        res.status(500).json({ error: "Server error" });
     }
 });
 
-// Perfil del usuario
+// Get user profile including role
 app.get("/profile", verifyToken, async (req, res) => {
     try {
-        const [rows] = await connection.execute("SELECT id, name, email FROM users WHERE id = ?", [req.user.id]);
+        const [rows] = await connection.execute("SELECT id, name, email, rol FROM users WHERE id = ?", [req.user.id]);
         if (rows.length === 0) {
-            return res.status(404).json({ error: "Usuario no encontrado" });
+            return res.status(404).json({ error: "User not found" });
         }
         res.json(rows[0]);
     } catch (err) {
-        console.error("Error en /profile:", err);
-        res.status(500).json({ error: "Error en el servidor" });
+        console.error("Error in /profile:", err);
+        res.status(500).json({ error: "Server error" });
     }
 });
 
-// Middleware para verificar el token
+// Middleware to verify JWT token
 function verifyToken(req, res, next) {
-    const token = req.header("Authorization")?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "Acceso denegado" });
+    const token = req.header("Authorization")?.split(" ")[1]; // Extract token from Authorization header
+    if (!token) return res.status(401).json({ message: "Access denied" });
     try {
-        const verified = jwt.verify(token, JWT_SECRET);
-        req.user = verified;
-        next();
+        const verified = jwt.verify(token, JWT_SECRET); // Verify token validity
+        req.user = verified; // Attach user data to request
+        next(); // Proceed to next middleware or route handler
     } catch (err) {
-        res.status(400).json({ message: "Token inválido" });
+        res.status(400).json({ message: "Invalid token" });
     }
 }
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
+const PORT = 3000; // Define server port
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`)); // Start the server
