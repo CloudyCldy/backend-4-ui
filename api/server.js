@@ -306,7 +306,7 @@ app.post("/devices", async (req, res) => {
     const { name, type, model } = req.body;
     try {
         const [result] = await connection.execute(
-            "INSERT INTO devices (name, type, model) VALUES (?, ?, ?)", 
+            "INSERT INTO devices (name, type, model) VALUES (?, ?, ?)",
             [name, type, model]
         );
         res.status(201).json({ message: "Device added successfully", deviceId: result.insertId });
@@ -322,7 +322,7 @@ app.put("/devices/:id", async (req, res) => {
     const { name, type, model } = req.body;
     try {
         const [result] = await connection.execute(
-            "UPDATE devices SET name = ?, type = ?, model = ? WHERE id = ?", 
+            "UPDATE devices SET name = ?, type = ?, model = ? WHERE id = ?",
             [name, type, model, id]
         );
         if (result.affectedRows === 0) {
@@ -351,10 +351,36 @@ app.delete("/devices/:id", async (req, res) => {
 });
 
 
+// Ruta vacía para el blog
+app.get("/blog", async (req, res) => {
+    res.json({ message: "Blog page - No content yet" });
+});
 
 
+app.post("/sensor-data", async (req, res) => {
+    const { device_id, temperature, humidity } = req.body;
+
+    if (!device_id || !temperature || !humidity) {
+        return res.status(400).json({ error: "Missing fields" });
+    }
+
+    try {
+        // ✅ Asegúrate de que la API los guarde como decimales
+        const [result] = await connection.execute(
+            "INSERT INTO sensor_readings (device_id, temperature, humidity) VALUES (?, ?, ?)",
+            [device_id, parseFloat(temperature), parseFloat(humidity)]
+        );
+
+        console.log(`Datos guardados: Device: ${device_id}, Temp: ${temperature}C, Hum: ${humidity}%`);
+        res.status(201).json({ message: "Data saved successfully", id: result.insertId });
+
+    } catch (error) {
+        console.error("Error saving data:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
 
 
 
 const PORT = 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`ya jalo ${PORT}`));
