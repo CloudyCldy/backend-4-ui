@@ -20,8 +20,10 @@ const connection = mysql.createPool({
     database: "hamstech",
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    connectTimeout: 15000  // Aumenta el tiempo de espera a 15 segundos
 });
+
 
 const JWT_SECRET = process.env.JWT_SECRET || "hamtech";
 const loginAttempts = {};
