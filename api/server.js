@@ -14,7 +14,7 @@ app.use(cors());
 const upload = multer({ storage: multer.memoryStorage() });
 
 const connection = mysql.createPool({
-    host: "34.224.75.233",
+    host: "int.c0b28yg0kqqf.us-east-1.rds.amazonaws.com",
     user: "admin",
     password: "hobito22",
     database: "hamstech",
