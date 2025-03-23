@@ -29,25 +29,38 @@ const JWT_SECRET = process.env.JWT_SECRET || "hamtech";
 const loginAttempts = {};
 
 app.post("/register", async (req, res) => {
+    console.log("Datos recibidos:", req.body);  // Verifica si los datos llegan correctamente
+
     const { name, email, password, rol = "normal" } = req.body;
-    if (!name || !email || !password) {
-        return res.status(400).json({ error: "Missing data" });
+
+    // Verifica que todos los campos sean válidos
+    if (!name || !email || !password || typeof password !== "string") {
+        return res.status(400).json({ error: "Campos inválidos o faltantes" });
     }
-    if (!["admin", "normal"].includes(rol)) {
-        return res.status(400).json({ error: "Invalid role" });
-    }
+
     try {
+        // Hash de la contraseña
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insertar el usuario en la base de datos
         const [result] = await connection.execute(
             "INSERT INTO users (name, email, password, rol) VALUES (?, ?, ?, ?)",
             [name, email, hashedPassword, rol]
         );
-        res.status(201).json({ message: "Registration successful", user: result.insertId });
+
+        res.status(201).json({ message: "Usuario registrado", user: result.insertId });
+
     } catch (err) {
-        console.error("Error in /register:", err);
-        res.status(500).json({ error: "Server error" });
+        console.error("Error en /register:", err);
+
+        if (err.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({ error: "El correo ya está registrado" });
+        }
+
+        res.status(500).json({ error: "Error en el servidor" });
     }
 });
+
 
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
