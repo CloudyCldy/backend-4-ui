@@ -395,6 +395,20 @@ app.post("/sensor-data", async (req, res) => {
     }
 });
 
+app.get("/sensor-data", async (req, res) => {
+    try {
+        const [rows] = await connection.execute(
+            "SELECT id, device_id, temperature, humidity, recorded_at FROM sensor_readings ORDER BY recorded_at DESC"
+        );
+
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Error retrieving data:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+
 
 
 const PORT = 3000;
