@@ -395,7 +395,7 @@ app.post("/sensor-data", async (req, res) => {
     }
 });
 
-app.get("/sensor-data", async (req, res) => {
+app.get("/sensores", async (req, res) => {
     try {
         const [rows] = await connection.execute(
             "SELECT id, device_id, temperature, humidity, recorded_at FROM sensor_readings ORDER BY recorded_at DESC"
